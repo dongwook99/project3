@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aws-auth
+  namespace: kube-system
+data:
+  mapRoles: |
+    - rolearn: arn:aws:iam::183631310061:role/service-role/codebuild-hospitalupdate  # IAM 역할 ARN
+      username: codebuild-hospitalupdate
+      groups:
+        - system:masters

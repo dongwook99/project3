@@ -1,0 +1,46 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin 183631310061.dkr.ecr.ap-northeast-2.amazonaws.com
+      - echo "Installing runtime..."
+      # EKS 클러스터에 연결하기 위한 kubeconfig 설정
+      - echo "Configuring kubectl for EKS..."
+      - aws eks --region ap-northeast-2 update-kubeconfig --name muhanEKS
+      - echo "Installing kubectl..."
+      - sudo curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      - sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+      - kubectl version --client
+  build:
+    commands:
+      - echo "Building Docker image..."
+      - docker build -f Dockerfile -t hospital:v1 .
+      - docker tag hospital:v1 183631310061.dkr.ecr.ap-northeast-2.amazonaws.com/hospital:v1
+
+  post_build:
+    commands:
+      - echo "Pushing Docker image to ECR..."
+      - docker push 183631310061.dkr.ecr.ap-northeast-2.amazonaws.com/hospital:v1
+      - echo "updating ECR"
+      - aws eks update-kubeconfig --name muhanEKS
+      - aws eks update-kubeconfig --name muhanEKS --region ap-northeast-2
+      # kubectl get configmap aws-auth -n kube-system -o yaml
+      - kubectl cluster-info
+      - echo "apply the service.yaml"
+      - kubectl apply -f service.yaml --validate=false
+      - echo "apply the configmap.yaml"
+      - kubectl apply -f configmap.yaml
+
+      - echo "apply the deployment.yaml"
+      - kubectl apply -f deployment.yaml
+      
+      - kubectl auth can-i get pods --all-namespaces
+      - kubectl config view
+      - echo "checking Connection to EKS Cluster Node"
+      - kubectl get nodes --v=8
+      - echo "Deploying to EKS..."
+      # Kubernetes 배포 파일을 사용하여 EKS에 배포
+      - kubectl set image deployment/hospital-web hospital-web=183631310061.dkr.ecr.ap-northeast-2.amazonaws.com/hospital:v1 --record
+      - echo "Build and deployment complete!"

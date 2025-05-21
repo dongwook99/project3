@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hospital-web
+  labels:
+    app: hospital-web
+spec:
+  replicas: 2  # 기존 1 -> 2로 변경 (가용성 확보)
+  strategy:
+    type: RollingUpdate  # 무중단 배포를 위해 추가
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: hospital-web
+  template:
+    metadata:
+      labels:
+        app: hospital-web
+    spec:
+      containers:
+      - name: hospital-web
+        image: 183631310061.dkr.ecr.ap-northeast-2.amazonaws.com/hospital:v1  # v1 -> latest 로 변경
+        ports:
+        - containerPort: 80
+        env:
+        - name: DB_HOST
+          value: "muhanrds.cxqu2e2cg5ww.ap-northeast-2.rds.amazonaws.com" # DB 서비스 이름
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: password
+        - name: DB_NAME
+          value: "hospital_db"
+        
+        # Redis 관련 환경 변수 추가
+        env:
+        - name: REDIS_HOST
+          value: "master.elasticachecluster.rabjjp.apn2.cache.amazonaws.com"  # Redis 클러스터 엔드포인트 (포트는 필요 없음)
+        - name: REDIS_PORT
+          value: "6379"  # Redis 기본 포트
+        
+        volumeMounts:
+        - name: config-volume
+          mountPath: /var/www/html/config/  # ConfigMap 마운트 경로 유지
+
+        resources:  # 리소스 요청 및 제한 추가
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+
+      volumes:
+      - name: config-volume
+        configMap:
+          name: hospital-web-config  # ConfigMap 이름 유지
+      - name: varlog
+        emptyDir: {}  # 추후 PVC 또는 EFS 고려
+
+      imagePullSecrets:
+      - name: ecr-secret  # 필요 시 ECR 로그인 설정

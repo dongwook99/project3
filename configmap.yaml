@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hospital-web-config
+data:
+  config.php: |
+    <?php
+    // DB 연결 정보
+    $host = getenv('DB_HOST');
+    $dbname = getenv('DB_NAME');
+    $username = getenv('DB_USER');
+    $password = getenv('DB_PASSWORD');
+
+    try {
+        $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    } catch (PDOException $e) {
+        die("Database connection failed: " . $e->getMessage());
+    }
+
+    // Redis 연결 정보
+    $redisHost = getenv('REDIS_HOST');
+    $redisPort = getenv('REDIS_PORT');
+    $redis = new Redis();
+
+    try {
+        $redis->connect($redisHost, $redisPort);
+        if ($redis->ping() == "+PONG") {
+            echo "Successfully connected to Redis!<br>";
+        } else {
+            echo "Failed to connect to Redis.<br>";
+        }
+    } catch (RedisException $e) {
+        die("Redis connection failed: " . $e->getMessage());
+    }
+    ?>
+
+  REDIS_HOST: "master.elasticachecluster.rabjjp.apn2.cache.amazonaws.com"
+  REDIS_PORT: "6379"
+  DB_HOST: "muhanrds.cxqu2e2cg5ww.ap-northeast-2.rds.amazonaws.com"
+  DB_NAME: "hospital_db"
+  DB_USER: "admin"
+  DB_PASSWORD: "ehddnr99!"
